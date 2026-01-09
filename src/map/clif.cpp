@@ -22920,7 +22920,7 @@ bool clif_parse_stylist_buy_sub( map_session_data* sd, _look look, int16 index )
 			struct mail_message msg = {};
 
 			msg.dest_id = sd->status.char_id;
-			safestrncpy( msg.send_name, "Styling Shop", NAME_LENGTH );
+			safestrncpy( msg.send_name, "<MSG>2813</MSG>", NAME_LENGTH );
 			safestrncpy( msg.title, "<MSG>2949</MSG>", MAIL_TITLE_LENGTH );
 			safestrncpy( msg.body, "<MSG>2950</MSG>", MAIL_BODY_LENGTH );
 
@@ -22942,11 +22942,62 @@ bool clif_parse_stylist_buy_sub( map_session_data* sd, _look look, int16 index )
 
 void clif_parse_stylist_buy( int32 fd, map_session_data* sd ){
 #if PACKETVER >= 20151104
-#if PACKETVER >= 20180516
+#if PACKETVER >= 20231218
+	struct PACKET_CZ_REQ_STYLE_CHANGE3* p = reinterpret_cast<PACKET_CZ_REQ_STYLE_CHANGE3*>( RFIFOP ( fd , 0 ) );
+#elif PACKETVER >= 20180516
 	const PACKET_CZ_REQ_STYLE_CHANGE2* p = reinterpret_cast<PACKET_CZ_REQ_STYLE_CHANGE2*>( RFIFOP( fd, 0 ) );
 #else
 	const PACKET_CZ_REQ_STYLE_CHANGE* p = reinterpret_cast<PACKET_CZ_REQ_STYLE_CHANGE*>( RFIFOP( fd, 0 ) );
 #endif
+#if PACKETVER >= 20231218
+	_look look = LOOK_HAIR_COLOR;
+	for (int i = 0; i < p->count; i++) {
+		int offset = 8 * i;
+		p->PacketLength = sizeof( *p );
+		p->PacketLength += offset;
+		p->category = RFIFOW(fd, 6 + offset);
+		p->index = RFIFOW(fd, 10 + offset);
+
+		switch (p->category) {
+			case 0:
+				look = LOOK_HAIR_COLOR;
+				break;
+			case 1:
+				look = LOOK_HAIR;
+				break;
+			case 2:
+				look = LOOK_CLOTHES_COLOR;
+				break;
+			case 3:
+				look = LOOK_HEAD_TOP;
+				break;
+			case 4:
+				look = LOOK_HEAD_MID;
+				break;
+			case 5:
+				look = LOOK_HEAD_BOTTOM;
+				break;
+			case 6:
+				look = LOOK_HAIR;
+				break;
+			case 8:
+				look = LOOK_CLOTHES_COLOR;
+				break;
+			case 9:
+				look = LOOK_BODY2;
+				break;
+			default:
+				look = LOOK_HAIR_COLOR;
+				ShowError("p->category : %d, undefined category\n", p->category); //Leave this for possible existence of case 7
+				break;
+		}
+		if (((p->category == 0 && p->index >= 0) || p->index > 0) && !clif_parse_stylist_buy_sub(sd, look, p->index)) {
+			clif_stylist_response(sd, true);
+			return;
+		}
+	}
+	RFIFOSKIP(fd, p->PacketLength - 14);
+#else
 	if( p->HeadPalette != 0 && !clif_parse_stylist_buy_sub( sd, LOOK_HAIR_COLOR, p->HeadPalette ) ){
 		clif_stylist_response( sd, true );
 		return;
@@ -22977,17 +23028,12 @@ void clif_parse_stylist_buy( int32 fd, map_session_data* sd ){
 		return;
 	}
 
-#if PACKETVER >= 20231220
-	if( p->BodyStyle != 0 ){
-		// TODO: Unsupported for now => This is job specific now
-		clif_stylist_response( sd, true );
-		return;
-	}
-#elif PACKETVER >= 20180516
+#if PACKETVER >= 20180516
 	if( p->BodyStyle != 0 && ( sd->class_ & JOBL_THIRD ) != 0 && ( sd->class_ & JOBL_FOURTH ) == 0 && !clif_parse_stylist_buy_sub( sd, LOOK_BODY2, p->BodyStyle ) ){
 		clif_stylist_response( sd, true );
 		return;
 	}
+#endif
 #endif
 
 	clif_stylist_response( sd, false );
