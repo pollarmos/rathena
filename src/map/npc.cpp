@@ -255,7 +255,11 @@ uint64 StylistDatabase::parseBodyNode( const ryml::NodeRef& node ){
 			return 0;
 		}
 
+#if PACKETVER_MAIN_NUM >= 20231218
+		if (index < 0) {
+#else
 		if( index == 0 ){
+#endif
 			this->invalidWarning( optionNode["Index"], "stylist_parseBodyNode: Unsupported index value \"%hd\"...\n", index );
 			return 0;
 		}
