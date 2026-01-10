@@ -2045,6 +2045,11 @@
 	parseable_packet( HEADER_CZ_REQ_REPORT_USER, sizeof( struct PACKET_CZ_REQ_REPORT_USER ), clif_parse_dull, 0 );
 #endif
 
+#if PACKETVER_MAIN_NUM >= 20230920
+	parseable_packet(HEADER_CZ_REQUEST_RANDOM_UPGRADE_ENCHANT, sizeof(struct PACKET_CZ_REQUEST_RANDOM_UPGRADE_ENCHANT), clif_parse_enchantwindow_upgrade_random, 0);
+	parseable_packet(HEADER_CZ_REQUEST_PERFECT_UPGRADE_ENCHANT, sizeof(struct PACKET_CZ_REQUEST_PERFECT_UPGRADE_ENCHANT), clif_parse_enchantwindow_upgrade, 0);
+#endif
+
 #if PACKETVER_MAIN_NUM >= 20240502
 	parseable_packet( HEADER_CZ_GM_CHECKER, sizeof( struct PACKET_CZ_GM_CHECKER ), clif_parse_macro_checker, 0 );
 #endif
