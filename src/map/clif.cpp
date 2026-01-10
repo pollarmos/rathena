@@ -20363,24 +20363,15 @@ void clif_display_pinfo( map_session_data& sd ){
 		 * EXP
 		 */
 		//0:PCRoom
-		details_bexp[PINFO_BASIC] = map_getmapflag( sd.m, MF_BEXP );
-		if (details_bexp[PINFO_BASIC] == 100 || !details_bexp[PINFO_BASIC])
-			details_bexp[PINFO_BASIC] = 0;
-		else {
-			if (details_bexp[PINFO_BASIC] < 100) {
-				details_bexp[PINFO_BASIC] = 100 - details_bexp[PINFO_BASIC];
+		if( pc_isvip( &sd ) ){
+			details_bexp[PINFO_BASIC] = battle_config.vip_base_exp_increase;
+			if (details_bexp[PINFO_BASIC] < 0)
 				details_bexp[PINFO_BASIC] = 0 - details_bexp[PINFO_BASIC];
-			} else
-				details_bexp[PINFO_BASIC] = details_bexp[PINFO_BASIC] - 100;
-		}
+		} else
+			details_bexp[PINFO_BASIC] = 0;
 
 		//1:Premium
-		if( pc_isvip( &sd ) ){
-			details_bexp[PINFO_PREMIUM] = battle_config.vip_base_exp_increase * battle_config.base_exp_rate / 100;
-			if (details_bexp[PINFO_PREMIUM] < 0)
-				details_bexp[PINFO_PREMIUM] = 0 - details_bexp[PINFO_PREMIUM];
-		} else
-			details_bexp[PINFO_PREMIUM] = 0;
+		details_bexp[PINFO_PREMIUM] = 0;
 
 		//2:Server
 		details_bexp[PINFO_SERVER] = battle_config.base_exp_rate;
@@ -20401,15 +20392,15 @@ void clif_display_pinfo( map_session_data& sd ){
 		 * Drop rate
 		 */
 		//0:PCRoom
-		details_drop[PINFO_BASIC] = 0;
+		if( pc_isvip( &sd ) ){
+			details_drop[PINFO_BASIC] = battle_config.vip_drop_increase;
+			if (details_drop[PINFO_BASIC] < 0)
+				details_drop[PINFO_BASIC] = 0 - details_drop[PINFO_BASIC];
+		} else
+			details_drop[PINFO_BASIC] = 0;
 
 		//1:Premium
-		if( pc_isvip( &sd ) ){
-			details_drop[PINFO_PREMIUM] = (battle_config.vip_drop_increase * battle_config.item_rate_common) / 100;
-			if (details_drop[PINFO_PREMIUM] < 0)
-				details_drop[PINFO_PREMIUM] = 0 - details_drop[PINFO_PREMIUM];
-		} else
-			details_drop[PINFO_PREMIUM] = 0;
+		details_drop[PINFO_PREMIUM] = 0;
 
 		//2:Server
 		details_drop[PINFO_SERVER] = battle_config.item_rate_common;
@@ -20431,24 +20422,24 @@ void clif_display_pinfo( map_session_data& sd ){
 		 */
 		//! FIXME: Current penalty system makes this announcement unable to give info on + or - rate
 		//0:PCRoom
-		details_penalty[PINFO_BASIC] = 0;
-
-		//1:Premium
 		if( pc_isvip( &sd ) ){
-			details_penalty[PINFO_PREMIUM] = battle_config.vip_exp_penalty_base;
-			if (details_penalty[PINFO_PREMIUM] == 100)
-				details_penalty[PINFO_PREMIUM] = 0;
+			details_penalty[PINFO_BASIC] = battle_config.vip_exp_penalty_base;
+			if (details_penalty[PINFO_BASIC] == 100)
+				details_penalty[PINFO_BASIC] = 0;
 			else {
-				if (details_penalty[PINFO_PREMIUM] < 100) {
-					details_penalty[PINFO_PREMIUM] = 100 - details_penalty[PINFO_PREMIUM];
-					details_penalty[PINFO_PREMIUM] = 0 - details_penalty[PINFO_PREMIUM];
+				if (details_penalty[PINFO_BASIC] < 100) {
+					details_penalty[PINFO_BASIC] = 100 - details_penalty[PINFO_BASIC];
+					details_penalty[PINFO_BASIC] = 0 - details_penalty[PINFO_BASIC];
 				} else
-					details_penalty[PINFO_PREMIUM] = details_penalty[PINFO_PREMIUM] - 100;
+					details_penalty[PINFO_BASIC] = details_penalty[PINFO_BASIC] - 100;
 			}
 			if (battle_config.death_penalty_base > battle_config.vip_exp_penalty_base)
-				details_penalty[PINFO_PREMIUM] = battle_config.vip_exp_penalty_base - battle_config.death_penalty_base;
+				details_penalty[PINFO_BASIC] = battle_config.vip_exp_penalty_base - battle_config.death_penalty_base;
 		} else
-			details_penalty[PINFO_PREMIUM] = 0;
+			details_penalty[PINFO_BASIC] = 0;
+
+		//1:Premium
+		details_penalty[PINFO_PREMIUM] = 0;
 
 		//2:Server
 		details_penalty[PINFO_SERVER] = battle_config.death_penalty_base;
@@ -20470,9 +20461,9 @@ void clif_display_pinfo( map_session_data& sd ){
 	p->packetType = HEADER_ZC_PERSONAL_INFOMATION;
 	p->length = sizeof( *p );
 #if PACKETVER_MAIN_NUM >= 20120503 || PACKETVER_RE_NUM >= 20120502 || defined(PACKETVER_ZERO)
-	p->total_exp = 100 * 1000;
-	p->total_death = 100 * 1000;
-	p->total_drop = 100 * 1000;
+	p->total_exp = 0 * 1000;
+	p->total_death = 0 * 1000;
+	p->total_drop = 0 * 1000;
 #else
 	p->total_exp = 100;
 	p->total_death = 100;
