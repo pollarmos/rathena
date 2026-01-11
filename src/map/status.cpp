@@ -13200,19 +13200,27 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 	t_tick totaltick, subtick, subticktime = (intptr_t)nullptr;
 	bool tick_interval = false;
 
-	totaltick = tick;
+	if(duration_total > INT_MAX)
+		totaltick = static_cast<int64>(duration_total);
+	else
+		totaltick = tick;
 
-	if (!(flag & SCSTART_LOADED)) {
-		subtick = totaltick; // When starting a new SC (not loading), its remaining duration is the same as the total
-		if(tick_time > 0) {
-			subticktime = tick_time;
-			tick_interval = true;
-		}
+	if (scdb->flag[SCF_NOTICKSAVE]) {
+		int64 past = (static_cast<int64>(val4) - time(nullptr)) * 1000;
+		subtick = i64max(0, totaltick + past);
 	} else {
-		subtick = duration;
-		if (duration_tick > 0) {
-			subticktime = duration_tick;
-			tick_interval = true;
+		if (!(flag & SCSTART_LOADED)) {
+			subtick = totaltick; // When starting a new SC (not loading), its remaining duration is the same as the total
+			if(tick_time > 0) {
+				subticktime = tick_time;
+				tick_interval = true;
+			}
+		} else {
+			subtick = duration;
+			if (duration_tick > 0) {
+				subticktime = duration_tick;
+				tick_interval = true;
+			}
 		}
 	}
 

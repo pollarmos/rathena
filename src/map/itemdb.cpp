@@ -762,6 +762,16 @@ uint64 ItemDatabase::parseBodyNode(const ryml::NodeRef& node) {
 	if (this->nodeExists(node, "Delay")) {
 		const auto& delayNode = node["Delay"];
 
+		if (this->nodeExists(delayNode, "CheckStatus")) {
+			bool active;
+			if (!this->asBool(delayNode, "CheckStatus", active))
+				return 0;
+			item->delay.checkstatus = active;
+		} else {
+			if (!exists)
+				item->delay.checkstatus = false;
+		}
+
 		if (this->nodeExists(delayNode, "Duration")) {
 			uint32 duration;
 

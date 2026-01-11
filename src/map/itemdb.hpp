@@ -3526,6 +3526,7 @@ struct item_data
 	struct {
 		uint32 duration;
 		sc_type sc; ///< Use delay group if any instead using player's item_delay data [Cydh]
+		bool checkstatus;
 	} delay;
 
 	~item_data() {

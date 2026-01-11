@@ -6535,7 +6535,7 @@ int32 pc_useitem(map_session_data *sd,int32 n)
 	if( id->flag.delay_consume > 0 && ( sd->ud.skilltimer != INVALID_TIMER /*|| !status_check_skilluse(sd, sd, ALL_RESURRECTION, 0)*/ ) )
 		return 0;
 
-	if( id->delay.duration > 0 && !pc_has_permission(sd,PC_PERM_ITEM_UNCONDITIONAL) && pc_itemcd_check(sd, id, tick, n))
+	if( (id->delay.checkstatus == true || id->delay.duration > 0) && !pc_has_permission(sd,PC_PERM_ITEM_UNCONDITIONAL) && pc_itemcd_check(sd, id, tick, n))
 		return 0;
 
 	/* on restricted maps the item is consumed but the effect is not used */
@@ -8430,6 +8430,10 @@ static void pc_calcexp(map_session_data *sd, t_exp *base_exp, t_exp *job_exp, bl
 			bonus += (sd->sc.getSCE(SC_EXPBOOST)->val1 / battle_config.vip_bm_increase);
 	}
 
+	if (sd->sc.getSCE(SC_PREMIUM_EXPBOOST))
+		bonus += sd->sc.getSCE(SC_PREMIUM_EXPBOOST)->val1;
+	if (sd->sc.getSCE(SC_SUB_EXPBOOST))
+		bonus += sd->sc.getSCE(SC_SUB_EXPBOOST)->val1;
 	if (sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND))
 		bonus += sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND)->val1;
 
@@ -10048,6 +10052,12 @@ int32 pc_dead(map_session_data *sd,block_list *src)
 			job_penalty = battle_config.death_penalty_job;
 			zeny_penalty = battle_config.zeny_penalty;
 		}
+
+		int32 bonus = 0;
+		if (sd->sc.getSCE(SC_SUB_DEADPENALTY))
+			bonus = sd->sc.getSCE(SC_SUB_DEADPENALTY)->val1;
+		base_penalty = base_penalty - bonus;
+		job_penalty = job_penalty - bonus;
 
 		if ((battle_config.death_penalty_maxlv&1 || !pc_is_maxbaselv(sd)) && base_penalty > 0) {
 			switch (battle_config.death_penalty_type) {
@@ -14830,12 +14840,19 @@ uint8 pc_itemcd_check(map_session_data *sd, struct item_data *id, t_tick tick, u
 
 	// Send reply of delay remains
 	if (sc->getSCE(id->delay.sc)) {
-		const struct TimerData *timer = get_timer(sc->getSCE(id->delay.sc)->timer);
-		clif_msg_value( *sd, MSI_ITEM_REUSE_LIMIT_SECOND, (int32)(timer ? DIFF_TICK(timer->tick, tick) / 1000 : 99) );
+		if (id->delay.checkstatus) {
+			char e_msg[CHAT_SIZE_MAX];
+			sprintf(e_msg, "%s", msg_txt(sd, 369));
+			clif_messagecolor(sd, color_table[COLOR_WHITE], e_msg, false, SELF);
+		} else {
+			const struct TimerData *timer = get_timer(sc->getSCE(id->delay.sc)->timer);
+			clif_msg_value( *sd, MSI_ITEM_REUSE_LIMIT_SECOND, (int32)(timer ? DIFF_TICK(timer->tick, tick) / 1000 : 99) );
+		}
 		return 1;
 	}
 
-	sc_start(sd, sd, id->delay.sc, 100, id->nameid, id->delay.duration);
+	if (id->delay.checkstatus == false)
+		sc_start(sd, sd, id->delay.sc, 100, id->nameid, id->delay.duration);
 	return 0;
 }
 
