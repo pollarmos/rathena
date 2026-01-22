@@ -1,0 +1,64 @@
+prontera,155,180,4	script	VIP 센터	4_f_kafra6,{
+OnTalk:
+	mes .npc$;
+	mes "안녕하세요, ^008aff"+strcharinfo(0)+"^000000 님!";
+	if (vip_status(1)) {
+		mes "^008affVIP 만료기간은 " + callfunc("Time2Str",vip_status(2)) + "^000000남았습니다.";
+		mes " ";
+	}
+	mes "무엇을 도와 드릴까요?";
+	next;
+	switch (select(""+((vip_status(1))?""+.bcor$+"^008affVIP^000000 기간을 연장하고싶습니다.":""+.bcor$+"^008affVIP^000000 유저에 가입합니다."),""+.rcor$+"아무것도 원하지 않습니다.")){
+		case 1:
+			mes .npc$;
+			mes "가입하실 ^008affVIP^000000 기간은?";
+			next;
+			.@i = select(
+				.bcor$+""+.vip_day[0] + " 일."
+				,.bcor$+""+.vip_day[1] + " 일."
+				,.bcor$+""+.vip_day[2] + " 일."
+				) - 1;
+
+			mes .npc$;
+			mes "당신이 선택하신 플랜은:";
+			mes "^4527A0기간:^000000 "+.vip_day[.@i]+" 일";
+			mes "^4527A0가격:^000000 "+F_InsertComma(.vip_cashpoint[.@i])+" 캐쉬포인트";
+			sleep2 1000;
+			mes " ";
+			mes " ";
+			mes "무엇을 원하세요?";
+			next;
+			switch(select(.bcor$+"구매:"+.rcor$+"취소")){
+				case 1:
+					if ( #CASHPOINTS < .vip_cashpoint[.@i] ) {
+					mes .npc$;
+					mes "^008aff"+F_InsertComma(.vip_cashpoint[.@i])+" #CASHPOINTS^000000가 없습니다.";
+					close;
+				}
+				else {
+					#CASHPOINTS -= .vip_cashpoint[.@i];
+					vip_time (.vip_day[.@i] * 1440);
+					mes .npc$;
+					mes "축하합니다. 당신은 이제 "+.vip_day[.@i]+" 일 VIP 유저가 되었습니다..";
+					close;
+				}
+				end;
+				case 2:
+					mes .npc$;
+					mes "네 언제다도 다시 들려주세요.";
+					close;
+			}
+
+		case 2:
+			close;
+	}
+
+OnInit:
+	.npc$ = "^FF7F00[ VIP 센터 ]^000000";	// Name of NPC;
+	.bcor$ = "^008aff[?^000000 ";			// Option Button Symbol;
+	.rcor$ = "^ff0000[?^000000 ";			// Cancel button symbol;
+	setarray .vip_day,7,14,30;				// Number of days that can be purchased;
+	setarray .vip_cashpoint,4000,7000,10000;// Price in #CASHPOINTS;
+	setarray .cord,130,161;					// X and Y Coordinate;
+	end;
+}
