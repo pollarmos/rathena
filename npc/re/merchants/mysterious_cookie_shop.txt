@@ -8,7 +8,7 @@ malangdo,124,152,3	script	Mysterious Cookie Shop#stone	4_COOKIEHOUSE,{
 	mes "[Mysterious Cookie Shop]";
 	mes "" + mesitemlink(7000) + " can be exchanged for anything you crave.";
 	next;
-	switch( select( "^4d4dffTop^000000 Stones", "^1C8008Middle^000000 Stones", "^ff0000Lower^000000 Stones", "^9905d8Garment^000000 Stones", "^8B4513Dual and effect^000000 Stones", "^9905d8Costumes^000000 on the ¡Ùclo¡Úthe¡Ùsline¡Ú" ) ) {
+	switch( select( "^4d4dffTop^000000 Stones", "^1C8008Middle^000000 Stones", "^ff0000Lower^000000 Stones", "^9905d8Garment^000000 Stones", "^8B4513Dual and effect^000000 Stones", "^9905d8Costumes^000000 on the â˜†cloâ˜…theâ˜†slineâ˜…" ) ) {
 	case 1:
 		mes "[Mysterious Cookie Shop]";
 		mes "Let's see what stones you can turn into with your mileage!";

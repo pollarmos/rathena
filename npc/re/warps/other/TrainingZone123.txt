@@ -11,7 +11,7 @@ prontera,246,62,3	script	Training Instructor#prontera_in	8W_SOLDIER,{
 	mes "[Training Instructor]";
 	mes "The royal court has set up a training ground for adventurers who wish to test their skills. If you wish to test your skills under various conditions, we will send you to the training ground.";
 	next;
-	switch( select( "¢ºEnter Basic Training Ground", "¢ºEnter 1/10 Training Ground", "¢ºEnter 1/100 Training Ground", "¢ºCancel" ) ) {
+	switch( select( "â–¶Enter Basic Training Ground", "â–¶Enter 1/10 Training Ground", "â–¶Enter 1/100 Training Ground", "â–¶Cancel" ) ) {
 	case 1:
 		mes "[Training Instructor]";
 		mes "I'll send you to the Basic Training Ground.";
@@ -50,31 +50,31 @@ tra_fild01,204,117,2	script	Training Ground Manager#fild01_1	8W_SOLDIER,{
 	next;
 	switch( atoi( charat(strnpcinfo(2), 7) ) ) {
 	case 1:
-		.@menu$[0] = "¢º Central Area";
+		.@menu$[0] = "â–¶ Central Area";
 		.@menu$[1] = "";
-		.@menu$[2] = "¢º 9 O'Clock Area";
-		.@menu$[3] = "¢º 6 O'Clock Area";
+		.@menu$[2] = "â–¶ 9 O'Clock Area";
+		.@menu$[3] = "â–¶ 6 O'Clock Area";
 		break;
 	case 2:
-		.@menu$[0] = "¢º Central Area";
-		.@menu$[1] = "¢º 3 O'Clock Area";
+		.@menu$[0] = "â–¶ Central Area";
+		.@menu$[1] = "â–¶ 3 O'Clock Area";
 		.@menu$[2] = "";
-		.@menu$[3] = "¢º 6 O'Clock Area";
+		.@menu$[3] = "â–¶ 6 O'Clock Area";
 		break;
 	case 3:
-		.@menu$[0] = "¢º Central area";
-		.@menu$[1] = "¢º 3 O'Clock Area";
-		.@menu$[2] = "¢º 9 O'Clock Area";
+		.@menu$[0] = "â–¶ Central area";
+		.@menu$[1] = "â–¶ 3 O'Clock Area";
+		.@menu$[2] = "â–¶ 9 O'Clock Area";
 		.@menu$[3] = "";
 		break;
 	case 4:
 		.@menu$[0] = "";
-		.@menu$[1] = "¢º 3 O'Clock Area";
-		.@menu$[2] = "¢º 9 O'Clock Area";
-		.@menu$[3] = "¢º 6 O'Clock Area";
+		.@menu$[1] = "â–¶ 3 O'Clock Area";
+		.@menu$[2] = "â–¶ 9 O'Clock Area";
+		.@menu$[3] = "â–¶ 6 O'Clock Area";
 		break;
 	}
-	switch( select( .@menu$[0], .@menu$[1], .@menu$[2], .@menu$[3], "¢º To Prontera", "¢º Cancel" ) ) {
+	switch( select( .@menu$[0], .@menu$[1], .@menu$[2], .@menu$[3], "â–¶ To Prontera", "â–¶ Cancel" ) ) {
 	case 1:
 		warp strcharinfo(3),109,94;
 		break;
@@ -115,21 +115,21 @@ OnTouch:
 	switch( atoi( charat(strnpcinfo(1), 9) ) ) {
 	case 1:
 		.@menu$[0] = "";
-		.@menu$[1] = "¢ºEnter 1/10 Training Ground";
-		.@menu$[2] = "¢ºEnter 1/100 Training Ground";
+		.@menu$[1] = "â–¶Enter 1/10 Training Ground";
+		.@menu$[2] = "â–¶Enter 1/100 Training Ground";
 		break;
 	case 2:
-		.@menu$[0] = "¢ºEnter Basic Training Grounds";
+		.@menu$[0] = "â–¶Enter Basic Training Grounds";
 		.@menu$[1] = "";
-		.@menu$[2] = "¢ºEnter 1/100 Training Grounds";
+		.@menu$[2] = "â–¶Enter 1/100 Training Grounds";
 		break;
 	case 3:
-		.@menu$[0] = "¢ºEnter Basic Training Grounds";
-		.@menu$[1] = "¢ºEnter 1/10 Training Grounds";
+		.@menu$[0] = "â–¶Enter Basic Training Grounds";
+		.@menu$[1] = "â–¶Enter 1/10 Training Grounds";
 		.@menu$[2] = "";
 		break;
 	}
-	switch( select( "¢ºTo Prontera", .@menu$[0], .@menu$[1], .@menu$[2], "¢ºCancel" ) ) {
+	switch( select( "â–¶To Prontera", .@menu$[0], .@menu$[1], .@menu$[2], "â–¶Cancel" ) ) {
 	case 1:
 		warp "prontera",246,60;
 		break;

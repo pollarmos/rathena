@@ -669,7 +669,7 @@ OnInit:
 	// mes "4th place - none";
 	// mes "5th place - none";
 	// mes "-----------------";
-	// mes "¡Ø The strategy record is updated every 5 minutes.";
+	// mes "â€» The strategy record is updated every 5 minutes.";
 	// mes "If recording does not occur immediately, please wait for a while and check.";
 	// close;
 // }
