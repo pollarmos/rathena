@@ -1311,11 +1311,23 @@ int32 chrif_save_scdata( const map_session_data* sd ) { //parses the sc_data of 
 				data.tick = 0; //Negative tick does not necessarily mean that sc has expired
 		} else
 			data.tick = INFINITE_TICK; //Infinite duration
+		data.tick_total = sce.tick_total;
 		data.type = type;
 		data.val1 = sce.val1;
 		data.val2 = sce.val2;
 		data.val3 = sce.val3;
 		data.val4 = sce.val4;
+		if (sce.tick_timer > 0) {
+			timer = get_timer(sce.tick_timer);
+			if (timer == nullptr || timer->func != status_change_tick_timer)
+				continue;
+			if (DIFF_TICK(timer->tick,tick) > 0)
+				data.tick_time = DIFF_TICK(timer->tick,tick);
+			else
+				data.tick_time = 0;
+		} else {
+			data.tick_time = 0;
+		}
 		memcpy(WFIFOP(char_fd,14 +count*sizeof(struct status_change_data)),
 			&data, sizeof(struct status_change_data));
 		count++;
@@ -1356,7 +1368,7 @@ int32 chrif_load_scdata(int32 fd) {
 	for (i = 0; i < count; i++) {
 		struct status_change_data *data = (struct status_change_data*)RFIFOP(fd,14 + i*sizeof(struct status_change_data));
 
-		status_change_start(nullptr, sd, (sc_type)data->type, 10000, data->val1, data->val2, data->val3, data->val4, data->tick, SCSTART_NOAVOID|SCSTART_NOTICKDEF|SCSTART_LOADED|SCSTART_NORATEDEF);
+		status_change_start_sub(nullptr, sd, (sc_type)data->type, 10000, data->val1, data->val2, data->val3, data->val4, data->tick, data->tick_total, data->tick_time, SCSTART_NOAVOID|SCSTART_NOTICKDEF|SCSTART_LOADED|SCSTART_NORATEDEF);
 	}
 
 	pc_scdata_received(sd);

@@ -3470,6 +3470,8 @@ struct sc_display_entry {
 struct status_change_entry {
 	int32 timer;
 	int32 val1,val2,val3,val4;
+	int32 tick_timer;
+	t_tick tick_total;
 
 	status_change_entry();
 	~status_change_entry();
@@ -3661,6 +3663,7 @@ bool status_isendure(const block_list& bl, t_tick tick, bool visible);
 
 t_tick status_get_sc_def(const block_list* src, const block_list* bl, sc_type type, int32 rate, t_tick tick, uint8 flag);
 bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 rate, int32 val1, int32 val2, int32 val3, int32 val4, t_tick duration, uint8 flag, int32 delay = 0);
+bool status_change_start_sub(block_list* src, block_list* bl, sc_type type, int32 rate, int32 val1, int32 val2, int32 val3, int32 val4, t_tick duration, t_tick duration_total, t_tick duration_tick, uint8 flag, int32 delay = 0);
 //Short version, receives rate in 1->100 range, and does not uses a flag setting.
 static bool sc_start(block_list *src, block_list *bl, sc_type type, int32 rate, int32 val1, t_tick duration, int32 delay = 0) {
 	return status_change_start(src, bl, type, 100 * rate, val1, 0, 0, 0, duration, SCSTART_NONE, delay);
@@ -3673,6 +3676,7 @@ static bool sc_start4(block_list *src, block_list *bl, sc_type type, int32 rate,
 }
 int32 status_change_end(block_list* bl, enum sc_type type, int32 tid = INVALID_TIMER);
 TIMER_FUNC(status_change_timer);
+TIMER_FUNC(status_change_tick_timer);
 int32 status_change_timer_sub(block_list* bl, va_list ap);
 int32 status_change_clear(block_list* bl, int32 type);
 void status_change_clear_buffs(block_list* bl, uint8 type);

@@ -417,6 +417,8 @@ struct status_change_data {
 	uint16 type; //SC_type
 	long val1, val2, val3, val4;
 	t_tick tick; //Remaining duration.
+	t_tick tick_time;
+	t_tick tick_total;
 };
 
 #define MAX_BONUS_SCRIPT_LENGTH 512

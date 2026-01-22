@@ -59,6 +59,8 @@ struct s_delay_status {
 	int32 val3;
 	int32 val4;
 	int32 tick;
+	int32 tick_total;
+	int32 tick_timer;
 	uint8 flag;
 };
 
@@ -121,7 +123,7 @@ static uint32 status_calc_maxhp_pc( map_session_data& sd, uint32 vit );
 static uint32 status_calc_maxsp_pc( map_session_data& sd, uint32 int_ );
 static uint32 status_calc_maxap_pc( map_session_data& sd );
 static int32 status_get_sc_interval(enum sc_type type);
-static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_type type, int32 val1, int32 val2, int32 val3, int32 val4, int32 tick, uint8 flag);
+static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_type type, int32 val1, int32 val2, int32 val3, int32 val4, t_tick duration, t_tick duration_total, t_tick duration_tick, uint8 flag);
 
 static bool status_change_isDisabledOnMap_(sc_type type, bool mapIsVS, bool mapIsPVP, bool mapIsGVG, bool mapIsBG, uint32 mapZone, bool mapIsTE);
 #define status_change_isDisabledOnMap(type, m) ( status_change_isDisabledOnMap_((type), mapdata_flag_vs2((m)), m->getMapFlag(MF_PVP) != 0, mapdata_flag_gvg2_no_te((m)), m->getMapFlag(MF_BATTLEGROUND) != 0, (m->zone << 3) != 0, mapdata_flag_gvg2_te((m))) )
@@ -1159,16 +1161,22 @@ void StatusDatabase::removeByStatusFlag(block_list *bl, std::vector<e_status_cha
 
 status_change_entry::status_change_entry(){
 	this->timer = INVALID_TIMER;
+	this->tick_timer = 0;
 	this->val1 = 0;
 	this->val2 = 0;
 	this->val3 = 0;
 	this->val4 = 0;
+	this->tick_total = 0;
 }
 
 status_change_entry::~status_change_entry(){
 	if( this->timer != INVALID_TIMER ){
 		delete_timer( this->timer, status_change_timer );
 		this->timer = INVALID_TIMER;
+	}
+	if (this->tick_timer > 0) {
+		delete_timer(this->tick_timer, status_change_tick_timer);
+		this->tick_timer = 0;
 	}
 }
 
@@ -10127,7 +10135,7 @@ TIMER_FUNC(status_change_start_timer) {
 		bl = map_id2bl(entry->bl_id);
 
 	if (bl != nullptr && !status_isdead(*bl))
-		status_change_start_post_delay(src, bl, entry->type, entry->val1, entry->val2, entry->val3, entry->val4, entry->tick, entry->flag);
+		status_change_start_post_delay(src, bl, entry->type, entry->val1, entry->val2, entry->val3, entry->val4, entry->tick, entry->tick_total, entry->tick_timer, entry->flag);
 
 	delay_status.erase(index);
 
@@ -10149,13 +10157,13 @@ TIMER_FUNC(status_change_start_timer) {
  * @param delay: Delay in milliseconds before the SC is applied
  * @return Whether the status change was resisted (false) or will be applied (true)
  */
-bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 rate, int32 val1, int32 val2, int32 val3, int32 val4, t_tick duration, uint8 flag, int32 delay) {
+bool status_change_start_sub(block_list* src, block_list* bl, sc_type type, int32 rate, int32 val1, int32 val2, int32 val3, int32 val4, t_tick duration, t_tick duration_total, t_tick duration_tick, uint8 flag, int32 delay) {
 	std::shared_ptr<s_status_change_db> scdb = status_db.find(type);
 
 	nullpo_ret(bl);
 
 	if( !scdb ) {
-		ShowError("status_change_start: Invalid status change (%d)!\n", type);
+		ShowError("status_change_start_sub: Invalid status change (%d)!\n", type);
 		return false;
 	}
 
@@ -10166,7 +10174,7 @@ bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 ra
 
 	// Scripted status changes only work for players for the time being
 	if( scdb->script != nullptr && bl->type != BL_PC ){
-		ShowError( "status_change_start: Failed to start the scripted status change %d on a non player.\n", type );
+		ShowError( "status_change_start_sub: Failed to start the scripted status change %d on a non player.\n", type );
 		return false;
 	}
 
@@ -10226,12 +10234,12 @@ bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 ra
 
 	// Adjust tick according to status resistances
 	if( !(flag&(SCSTART_NOAVOID|SCSTART_LOADED)) ) {
-		duration = status_get_sc_def(src, bl, type, rate, duration, flag);
-		if( !duration )
+		duration_total = status_get_sc_def(src, bl, type, rate, duration_total, flag);
+		if( !duration_total )
 			return false;
 	}
 
-	int32 tick = (int32)duration;
+	int32 tick = static_cast<int32>(duration_total);
 
 	// Type-specific checks that need to happen before the delay
 	switch (type) {
@@ -10268,7 +10276,7 @@ bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 ra
 	// If there is no delay, we proceed immediately
 	// Otherwise, we store the status change data in a struct and set up a timer for after the delay
 	if (delay <= 0)
-		return status_change_start_post_delay(src, bl, type, val1, val2, val3, val4, tick, flag);
+		return status_change_start_post_delay(src, bl, type, val1, val2, val3, val4, duration, duration_total, duration_tick, flag);
 
 	std::shared_ptr<s_delay_status> entry = std::make_shared<s_delay_status>();
 
@@ -10285,6 +10293,8 @@ bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 ra
 #else
 	entry->tick = tick;
 #endif
+	entry->tick_total = static_cast<int32>(duration_total);
+	entry->tick_timer = static_cast<int32>(duration_tick);
 	entry->flag = flag;
 
 	int32 index = delay_status_index++;
@@ -10294,6 +10304,10 @@ bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 ra
 
 	// Assume success
 	return true;
+}
+
+bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 rate, int32 val1, int32 val2, int32 val3, int32 val4, t_tick duration, uint8 flag, int32 delay) {
+	return status_change_start_sub(src, bl, type, rate, val1, val2, val3, val4, 0, duration, 0, flag, delay);
 }
 
 /**
@@ -10307,12 +10321,14 @@ bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 ra
  * @param flag: Value which determines what parts to calculate. See e_status_change_start_flags
  * @return Whether the status change was resisted (false) or applied (true)
  */
-static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_type type, int32 val1, int32 val2, int32 val3, int32 val4, int32 tick, uint8 flag)
+static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_type type, int32 val1, int32 val2, int32 val3, int32 val4, t_tick duration, t_tick duration_total, t_tick duration_tick, uint8 flag)
 {
 	map_session_data* sd = BL_CAST(BL_PC, bl);
 	status_change* sc = status_get_sc(bl);
 	status_data* status = status_get_status_data(*bl);
 	int32 undead_flag = battle_check_undead(status->race,status->def_ele);
+
+	int32 tick = static_cast<int32>(duration_total);
 
 	// Check for immunities / sc fails
 	switch (type) {
@@ -11894,6 +11910,7 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 			else
 				val4 |= battle_config.monster_cloak_check_type&7;
 			tick_time = 1000; // [GodLesZ] tick time
+			tick = INFINITE_TICK;
 			break;
 		case SC_HALLUCINATIONWALK:
 		case SC_NPC_HALLUCINATIONWALK:
@@ -13180,6 +13197,25 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 		calc_flag.reset(SCB_DYE);
 	}
 
+	t_tick totaltick, subtick, subticktime = (intptr_t)nullptr;
+	bool tick_interval = false;
+
+	totaltick = tick;
+
+	if (!(flag & SCSTART_LOADED)) {
+		subtick = totaltick; // When starting a new SC (not loading), its remaining duration is the same as the total
+		if(tick_time > 0) {
+			subticktime = tick_time;
+			tick_interval = true;
+		}
+	} else {
+		subtick = duration;
+		if (duration_tick > 0) {
+			subticktime = duration_tick;
+			tick_interval = true;
+		}
+	}
+
 	if (!(flag&SCSTART_NOICON) && !(flag&SCSTART_LOADED && scdb->flag[SCF_DISPLAYPC] || scdb->flag[SCF_DISPLAYNPC])) {
 		int32 status_icon = scdb->icon;
 
@@ -13188,17 +13224,19 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 			status_icon = EFST_ATTACK_PROPERTY_NOTHING + val1; // Assign status icon for older clients
 #endif
 
-		clif_status_change(bl, status_icon, 1, tick, scdb->flag[SCF_SENDVAL1] ? val1 : 1, scdb->flag[SCF_SENDVAL2] ? val2 : 0, scdb->flag[SCF_SENDVAL3] ? val3 : 0);
+		if(sc->getSCE(type)) {
+			clif_status_change(bl, status_icon, 0, 0, 0, 0, 0);
+		}
+		clif_status_change_sub(bl, bl->id, status_icon, 1, subtick, totaltick, scdb->flag[SCF_SENDVAL1] ? val1 : 1, scdb->flag[SCF_SENDVAL2] ? val2 : 0, scdb->flag[SCF_SENDVAL3] ? val3 : 0);
 	}
 
-	// Used as temporary storage for scs with interval ticks, so that the actual duration is sent to the client first.
-	if( tick_time )
-		tick = tick_time;
 
 	status_change_entry* sce = sc->getSCE(type);
 	bool sc_isnew = true;
 
 	if (sce != nullptr) {
+		if( tick_interval && sce->tick_timer > 0 )
+			delete_timer(sce->tick_timer, status_change_tick_timer);
 		if( sce->timer != INVALID_TIMER )
 			delete_timer(sce->timer, status_change_timer);
 		sc_isnew = false;
@@ -13210,10 +13248,18 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 	sce->val2 = val2;
 	sce->val3 = val3;
 	sce->val4 = val4;
-	if (tick >= 0)
-		sce->timer = add_timer(gettick() + tick, status_change_timer, bl->id, type);
+	if (subtick >= 0)
+		sce->timer = add_timer(gettick() + subtick, status_change_timer, bl->id, type);
 	else
 		sce->timer = INVALID_TIMER; // Infinite duration
+
+	sce->tick_total = totaltick;
+
+	if(tick_interval && subticktime >= 0) {
+		sce->tick_timer = add_timer(gettick() + subticktime, status_change_tick_timer, bl->id, type);
+	} else {
+		sce->tick_timer = 0;
+	}
 
 	if (calc_flag.any()) {
 		if (sd != nullptr) {
@@ -14167,6 +14213,50 @@ TIMER_FUNC(status_change_timer){
 	
 	FreeBlockLock freeLock(false);
 
+	// Default for all non-handled control paths is to end the status
+	return status_change_end( bl,type,tid );
+}
+
+TIMER_FUNC(status_change_tick_timer){
+	enum sc_type type = (sc_type)data;
+	block_list *bl;
+	map_session_data *sd;
+	int32 interval = status_get_sc_interval(type);
+
+	bl = map_id2bl(id);
+	if(!bl) {
+		ShowDebug("status_change_tick_timer: Null pointer id: %d data: %" PRIdPTR "\n", id, data);
+		return 0;
+	}
+
+	status_change * const sc = status_get_sc(bl);
+
+	if(!sc) {
+		ShowDebug("status_change_tick_timer: Null pointer id: %d data: %" PRIdPTR " bl-type: %d\n", id, data, bl->type);
+		return 0;
+	}
+
+	struct status_change_entry * const sce = sc->getSCE(type);
+	if(!sce) {
+		ShowDebug("status_change_tick_timer: Null pointer id: %d data: %" PRIdPTR " bl-type: %d\n", id, data, bl->type);
+		return 0;
+	}
+	if( sce->tick_timer != tid ) {
+		ShowError("status_change_tick_timer: Mismatch for type %d: %d != %d (bl id %d)\n",type,tid,sce->timer, bl->id);
+		return 0;
+	}
+
+	const status_data* status = status_get_status_data(*bl);
+
+	sd = BL_CAST(BL_PC, bl);
+
+	std::function<void (t_tick)> sc_timer_next = [&sce, &bl, &data](t_tick t) {
+		if(sce->timer == INVALID_TIMER || get_timer(sce->timer)->tick >= t)
+			sce->tick_timer = add_timer(t, status_change_tick_timer, bl->id, data);
+	};
+
+	FreeBlockLock freeLock(false);
+
 	switch(type) {
 	case SC_MAXIMIZEPOWER:
 	case SC_CLOAKING:
@@ -14370,7 +14460,7 @@ TIMER_FUNC(status_change_timer){
 			bl->m == sd->feel_map[1].m ||
 			bl->m == sd->feel_map[2].m)
 		{	// Timeout will be handled by pc_setpos
-			sce->timer = INVALID_TIMER;
+			sce->tick_timer = INVALID_TIMER;
 			return 0;
 		}
 		break;
@@ -16492,6 +16582,7 @@ void do_init_status(void) {
 	add_timer_func_list(status_change_start_timer, "status_change_start_timer");
 
 	add_timer_func_list(status_change_timer,"status_change_timer");
+	add_timer_func_list(status_change_tick_timer, "status_change_tick_timer");
 	add_timer_func_list(status_natural_heal_timer,"status_natural_heal_timer");
 	add_timer_func_list(status_clear_lastEffect_timer, "status_clear_lastEffect_timer");
 	initDummyData();
