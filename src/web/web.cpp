@@ -285,7 +285,7 @@ int32 web_sql_init(void) {
 	ShowStatus("Connect success! (Login Server Connection)\n");
 
 	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(login_handle, default_codepage.c_str()))
+		if (SQL_ERROR == Sql_SetEncoding(login_handle, "utf8"))
 			Sql_ShowDebug(login_handle);
 	}
 
@@ -302,7 +302,7 @@ int32 web_sql_init(void) {
 	ShowStatus("Connect success! (Char Server Connection)\n");
 
 	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(char_handle, default_codepage.c_str()))
+		if (SQL_ERROR == Sql_SetEncoding(char_handle, "utf8"))
 			Sql_ShowDebug(char_handle);
 	}
 
@@ -319,7 +319,7 @@ int32 web_sql_init(void) {
 	ShowStatus("Connect success! (Map Server Connection)\n");
 
 	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(map_handle, default_codepage.c_str()))
+		if (SQL_ERROR == Sql_SetEncoding(map_handle, "utf8"))
 			Sql_ShowDebug(map_handle);
 	}
 
@@ -336,7 +336,7 @@ int32 web_sql_init(void) {
 	ShowStatus("Connect success! (Web Server Connection)\n");
 
 	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(web_handle, default_codepage.c_str()))
+		if (SQL_ERROR == Sql_SetEncoding(web_handle, "utf8"))
 			Sql_ShowDebug(web_handle);
 	}
 
