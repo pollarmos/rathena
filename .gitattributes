@@ -13,3 +13,5 @@ Makefile text eol=lf
 Makefile.in text eol=lf
 *.sh text eol=lf
 *.sql text eol=lf
+*.txt text working-tree-encoding=CP949
+*.yml text working-tree-encoding=CP949
