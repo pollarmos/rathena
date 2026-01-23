@@ -3095,7 +3095,7 @@ OnTouch_:
 
 prt_maze02,25,161,0	script	#music	-1,7,7,{
 OnTouch_:
-	soundeffect "effect\\¼®¾çÀÇ ¾î½Ø½Å.wav",1;
+	soundeffect "effect\\ì„ì–‘ì˜ ì–´ìŒ”ì‹ .wav",1;
 	end;
 }
 

@@ -3741,7 +3741,7 @@ ve_fild03,348,230,5	script	Map Examiner Dew#85	4_M_MOC_SOLDIER,{
 		specialeffect EF_FLASHER;
 		mes .@npc_name$;
 		mes "It's refreshing!";
-		mes "ļ~...";
+		mes "~...";
 		next;
 		mes .@npc_name$;
 		mes "I am asking adventurers to investigate monster subjugation, how do you feel?";

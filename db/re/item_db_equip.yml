@@ -261510,7 +261510,7 @@ Body:
       }
   - Id: 650058
     AegisName: Frontier_SS_Humma
-    Name: Frontier Moonlight Fūma Shuriken    # !todo check english name
+    Name: Frontier Moonlight Fuma Shuriken    # !todo check english name
     Type: Weapon
     SubType: Huuma
     Weight: 3500
