@@ -768,6 +768,10 @@ struct Battle_Config
 	int32 feature_stylist;
 	int32 feature_banking_state_enforce;
 	int32 instance_allow_reconnect;
+	int32 feature_goldpc_active;
+	int32 feature_goldpc_time;
+	int32 feature_goldpc_max_points;
+	int32 feature_goldpc_vip;
 	int32 synchronize_damage;
 	int32 item_stacking;
 	int32 hom_delay_reset_vaporize;

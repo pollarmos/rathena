@@ -1509,4 +1509,8 @@ void clif_noask_sub( const map_session_data& sd, const map_session_data& tsd, in
 
 void clif_specialpopup(const map_session_data& sd, int32 id);
 
+void clif_goldpc_info( map_session_data& sd );
+
+void clif_parse_dynamic_npc( int32 fd, map_session_data* sd );
+
 #endif /* CLIF_HPP */
