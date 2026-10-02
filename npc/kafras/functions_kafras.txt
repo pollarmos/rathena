@@ -270,7 +270,7 @@ function	script	F_KafStor	{
 				mes "..이용..하시...하실..";
 				mes "..창고를.. 선택...^000000";
 				next;
-				switch(select("1번 창고:2번 창고:3번 창고")) {
+				switch(select("1번 창고:2번 창고:3번 창고:4번 창고")) {
 
 				case 1:
 					set .@sno,0;
@@ -281,6 +281,9 @@ function	script	F_KafStor	{
 				case 3:
 					set .@sno,2;
 					break;
+				case 4:
+					set .@sno,3;
+					break;
 				}
 		}
 		// 일반메시지
@@ -288,7 +291,7 @@ function	script	F_KafStor	{
 			mes "[카프라 직원]";
 			mes "이용하실 창고를 선택 해 주세요.";
 			next;
-			switch(select("1번 창고:2번 창고:3번 창고")) {
+			switch(select("1번 창고:2번 창고:3번 창고:4번 창고")) {
 
 			case 1:
 				set .@sno,0;
@@ -299,6 +302,9 @@ function	script	F_KafStor	{
 			case 3:
 				set .@sno,2;
 				break;
+			case 4:
+				set .@sno,3;
+				break;
 			}
 		}
 	}
@@ -306,8 +312,7 @@ function	script	F_KafStor	{
 		mes "[카프라 직원]";
 		mes "이용하실 창고를 선택 해 주세요.";
 		next;
-		switch(select("1번 창고:2번 창고:3번 창고")) {
-
+		switch(select("1번 창고:2번 창고:3번 창고:4번 창고")) {
 		case 1:
 			set .@sno,0;
 			break;
@@ -316,6 +321,9 @@ function	script	F_KafStor	{
 			break;
 		case 3:
 			set .@sno,2;
+			break;
+		case 4:
+			set .@sno,3;
 			break;
 		}
 	}
@@ -345,21 +353,13 @@ function	script	F_KafStor	{
 
 	close2;
 	if(.@sno == 0)
-		if(getstatus(SC_PREMIUM_STORAGEBOOST))
-			openstorage2 5,STOR_MODE_GET|STOR_MODE_PUT;
-		else
-			openstorage2 1,STOR_MODE_GET|STOR_MODE_PUT;
+		openstorage;
 	else if(.@sno == 1)
-		if(getstatus(SC_PREMIUM_STORAGEBOOST))
-			openstorage2 6,STOR_MODE_GET|STOR_MODE_PUT;
-		else
-			openstorage2 2,STOR_MODE_GET|STOR_MODE_PUT;
+		openstorage2 1, STOR_MODE_ALL;
 	else if(.@sno == 2)
-		if(getstatus(SC_PREMIUM_STORAGEBOOST))
-			openstorage2 7,STOR_MODE_GET|STOR_MODE_PUT;
-		else
-			openstorage2 3,STOR_MODE_GET|STOR_MODE_PUT;
-
+		openstorage2 2, STOR_MODE_ALL;
+	else if(.@sno == 3)
+		openstorage2 3, STOR_MODE_ALL;
 	cutin "", 255;
 	end;
 }

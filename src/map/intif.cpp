@@ -3435,14 +3435,47 @@ static bool intif_parse_StorageReceived(int32 fd)
 		return false;
 	}
 
-	if (!RFIFOB(fd, 9)) {
-		ShowError("intif_parse_StorageReceived: Failed to load! (AID: %d, type: %d)\n", account_id, type);
+	if (RFIFOW(fd,2)-10 != sz_stor) {
+#ifdef ENABLE_MULTI_STORAGE_TABS
+		if( type == TABLE_STORAGE && sd->storage_tabs.enabled ){
+			if( sd->storage_tabs.phase == STORAGE_TAB_WAIT_LOAD ){
+				storage_tab_load_failed( sd, sd->storage_tabs.target_id );
+			}else if( sd->storage_tabs.phase == STORAGE_TAB_CANCELED_LOAD ){
+				storage_tab_reset( sd );
+			}
+		}
+#endif
+		ShowError("intif_parse_StorageReceived: data size error %d %" PRIuPTR "\n",RFIFOW(fd,2)-10 , sz_stor);
 		return false;
 	}
 
 	p = (struct s_storage *)RFIFOP(fd,10);
 
-	switch (type) { 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( type == TABLE_STORAGE && p->stor_id > 0 && sd->storage_tabs.enabled ){
+		if( sd->storage_tabs.phase == STORAGE_TAB_CANCELED_LOAD && sd->storage_tabs.target_id == p->stor_id ){
+			storage_tab_reset( sd );
+			return false;
+		}
+
+		if( sd->storage_tabs.phase != STORAGE_TAB_WAIT_LOAD || sd->storage_tabs.target_id != p->stor_id ){
+			ShowWarning("intif_parse_StorageReceived: discarded unexpected storage tab %u for AID %u.\n", p->stor_id, account_id);
+			return false;
+		}
+	}
+#endif
+
+	if (!RFIFOB(fd, 9)) {
+#ifdef ENABLE_MULTI_STORAGE_TABS
+		if( type == TABLE_STORAGE ){
+			storage_tab_load_failed( sd, p->stor_id );
+		}
+#endif
+		ShowError("intif_parse_StorageReceived: Failed to load! (AID: %d, type: %d, storage: %u)\n", account_id, type, p->stor_id);
+		return false;
+	}
+
+	switch (type) {
 		case TABLE_INVENTORY:
 			stor = &sd->inventory;
 			break;
@@ -3461,18 +3494,19 @@ static bool intif_parse_StorageReceived(int32 fd)
 
 	if (stor->stor_id == p->stor_id) {
 		if (stor->status) { // Already open.. lets ignore this update
+#ifdef ENABLE_MULTI_STORAGE_TABS
+			storage_tab_load_failed( sd, p->stor_id );
+#endif
 			ShowWarning("intif_parse_StorageReceived: storage received for a client already open (User %d:%d)\n", sd->status.account_id, sd->status.char_id);
 			return false;
 		}
 		if (stor->dirty) { // Already have storage, and it has been modified and not saved yet! Exploit!
+#ifdef ENABLE_MULTI_STORAGE_TABS
+			storage_tab_load_failed( sd, p->stor_id );
+#endif
 			ShowWarning("intif_parse_StorageReceived: received storage for an already modified non-saved storage! (User %d:%d)\n", sd->status.account_id, sd->status.char_id);
 			return false;
 		}
-	}
-	if (RFIFOW(fd,2)-10 != sz_stor) {
-		ShowError("intif_parse_StorageReceived: data size error %d %" PRIuPTR "\n",RFIFOW(fd,2)-10 , sz_stor);
-		stor->status = false;
-		return false;
 	}
 
 	memcpy(stor, p, sz_stor); //copy the items data to correct destination
@@ -3546,20 +3580,24 @@ static bool intif_parse_StorageReceived(int32 fd)
  */
 static void intif_parse_StorageSaved(int32 fd)
 {
-	if (RFIFOB(fd, 6)) {
-		switch (RFIFOB(fd, 7)) {
+	bool success = RFIFOB(fd, 6) != 0;
+	uint8 type = RFIFOB(fd, 7);
+	uint8 stor_id = RFIFOB(fd, 8);
+	map_session_data* sd = map_id2sd( RFIFOL(fd, 2) );
+
+	if (success) {
+		switch (type) {
 			case TABLE_INVENTORY: //inventory
 				//ShowInfo("Inventory has been saved (AID: %d).\n", RFIFOL(fd, 2));
 				break;
 			case TABLE_STORAGE: //storage
 				{
-					map_session_data *sd = map_id2sd( RFIFOL( fd, 2 ) );
 					struct s_storage* stor = nullptr;
 
-					if( RFIFOB( fd, 8 ) ){
-						// ShowInfo("Storage %d has been saved (AID: %d).\n", RFIFOL(fd, 2), RFIFOB(fd, 8) );
+					if( stor_id ){
+						// ShowInfo("Storage %d has been saved (AID: %d).\n", RFIFOL(fd, 2), stor_id );
 
-						if( sd ){
+						if( sd && sd->premiumStorage.stor_id == stor_id ){
 							stor = &sd->premiumStorage;
 						}
 					}else{
@@ -3573,13 +3611,14 @@ static void intif_parse_StorageSaved(int32 fd)
 					if( stor ){
 						stor->dirty = false;
 					}
+#ifdef ENABLE_MULTI_STORAGE_TABS
+					storage_tab_save_result( sd, stor_id, true );
+#endif
 				}
 				break;
 			case TABLE_CART: // cart
 				//ShowInfo("Cart has been saved (AID: %d).\n", RFIFOL(fd, 2));
 				{
-					map_session_data *sd = map_id2sd(RFIFOL(fd, 2));
-
 					if( sd && sd->state.prevend ){
 						intif_storage_request(sd,TABLE_CART,0,STOR_MODE_ALL);
 					}
@@ -3588,8 +3627,14 @@ static void intif_parse_StorageSaved(int32 fd)
 			default:
 				break;
 		}
-	} else
-		ShowError("Failed to save inventory/cart/storage data (AID: %d, type: %d).\n", RFIFOL(fd, 2), RFIFOB(fd, 7));
+	} else {
+#ifdef ENABLE_MULTI_STORAGE_TABS
+		if( type == TABLE_STORAGE ){
+			storage_tab_save_result( sd, stor_id, false );
+		}
+#endif
+		ShowError("Failed to save inventory/cart/storage data (AID: %d, type: %d, storage: %u).\n", RFIFOL(fd, 2), type, stor_id);
+	}
 }
 
 /**

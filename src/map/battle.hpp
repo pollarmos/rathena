@@ -523,6 +523,9 @@ struct Battle_Config
 	int32 knockback_left;
 	int32 client_reshuffle_dice;  // Reshuffle /dice
 	int32 client_sort_storage;
+	int32 storage_tabs_count;
+	int32 storage_tabs_cathand_count;
+	int32 storage_tabs_loading_delay;
 	int32 feature_buying_store;
 	int32 feature_search_stores;
 	int32 searchstore_querydelay;

@@ -1048,6 +1048,34 @@ struct PACKET_ZC_NOTIFY_STOREITEM_COUNTINFO {
 } __attribute__((packed));
 DEFINE_PACKET_HEADER(ZC_NOTIFY_STOREITEM_COUNTINFO, 0xf2);
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+// 2026-07-15 numbered Kafra storage protocol.
+struct PACKET_ZC_STORAGE_TAB_LIMITS {
+	int16 packetType;
+	uint16 reserved;
+	uint16 personal_count;
+	uint16 secondary_count;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_STORAGE_TAB_LIMITS, 0x0c71);
+
+struct PACKET_CZ_STORAGE_TAB_SELECT {
+	int16 packetType;
+	uint16 selector;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_STORAGE_TAB_SELECT, 0x0c72);
+
+struct PACKET_ZC_STORAGE_TAB_RESULT {
+	int16 packetType;
+	uint16 selector;
+	uint8 result;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_STORAGE_TAB_RESULT, 0x0c73);
+
+static_assert(sizeof(PACKET_ZC_STORAGE_TAB_LIMITS) == 8);
+static_assert(sizeof(PACKET_CZ_STORAGE_TAB_SELECT) == 4);
+static_assert(sizeof(PACKET_ZC_STORAGE_TAB_RESULT) == 5);
+#endif
+
 struct PACKET_ZC_EXCHANGEITEM_UNDO {
 	int16 packetType;
 } __attribute__((packed));

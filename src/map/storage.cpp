@@ -10,6 +10,7 @@
 #include <common/cbasetypes.hpp>
 #include <common/nullpo.hpp>
 #include <common/showmsg.hpp>
+#include <common/timer.hpp>
 #include <common/utilities.hpp>
 
 #include "battle.hpp"
@@ -91,12 +92,360 @@ void storage_sortitem(struct item* items, uint32 size)
 		qsort(items, size, sizeof(struct item), storage_comp_item);
 }
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+static uint16 storage_tab_contiguous(){
+	uint16 count = 0;
+
+	while( count < 100 && storage_exists( static_cast<uint8>(count) ) ){
+		count++;
+	}
+
+	for( const auto& entry : storage_db ){
+		if( entry.first < 100 && entry.first >= count ){
+			return 0;
+		}
+	}
+
+	return count;
+}
+
+uint16 storage_tab_count(){
+	if( battle_config.storage_tabs_count <= 0 ){
+		return 0;
+	}
+
+	uint16 avail = storage_tab_contiguous();
+
+	if( avail == 0 ){
+		return 0;
+	}
+
+	return min( avail, static_cast<uint16>(battle_config.storage_tabs_count) );
+}
+
+uint16 storage_tab_count_secondary(){
+	if( battle_config.storage_tabs_cathand_count <= 0 ){
+		return 0;
+	}
+
+	uint16 personal = storage_tab_count();
+
+	if( personal == 0 ){
+		return 0;
+	}
+
+	uint16 avail = storage_tab_contiguous();
+
+	if( avail <= personal ){
+		return 0;
+	}
+
+	return min( static_cast<uint16>(avail - personal), static_cast<uint16>(battle_config.storage_tabs_cathand_count) );
+}
+
+static bool storage_tab_selector2id( uint16 selector, uint8& id ){
+	uint16 personal = storage_tab_count();
+
+	if( selector >= 1 && selector <= personal ){
+		id = static_cast<uint8>( selector - 1 );
+		return true;
+	}
+
+	uint16 secondary = storage_tab_count_secondary();
+
+	if( selector > STORAGE_TAB_SECONDARY_BASE && selector <= STORAGE_TAB_SECONDARY_BASE + secondary ){
+		id = static_cast<uint8>( personal + ( selector - STORAGE_TAB_SECONDARY_BASE - 1 ) );
+		return true;
+	}
+
+	return false;
+}
+
+static uint16 storage_tab_id2selector( uint8 id ){
+	uint16 personal = storage_tab_count();
+
+	if( id < personal ){
+		return static_cast<uint16>( id ) + 1;
+	}
+
+	return STORAGE_TAB_SECONDARY_BASE + ( static_cast<uint16>( id ) - personal ) + 1;
+}
+
+uint16 storage_tab_count_total(){
+	return storage_tab_count() + storage_tab_count_secondary();
+}
+
+static void storage_tab_update_max_amount( map_session_data* sd, struct s_storage* stor ){
+	if( sd == nullptr || stor == nullptr ){
+		return;
+	}
+
+	std::shared_ptr<struct s_storage_table> storage_info =
+		util::umap_find( storage_db, static_cast<uint16>(stor->stor_id) );
+
+	if( storage_info == nullptr ){
+		return;
+	}
+
+	stor->max_amount = storage_info->max_num;
+
+	if( sd->sc.getSCE(SC_PREMIUM_STORAGEBOOST) ){
+		stor->max_amount = MAX_STORAGE;
+	}
+}
+
+static TIMER_FUNC(storage_tab_display_timer);
+
+void storage_tab_reset( map_session_data* sd ){
+	if( sd == nullptr ){
+		return;
+	}
+
+	if( sd->storage_tabs.loading_tid != INVALID_TIMER ){
+		delete_timer( sd->storage_tabs.loading_tid, storage_tab_display_timer );
+	}
+
+	memset( &sd->storage_tabs, 0, sizeof(sd->storage_tabs) );
+	sd->storage_tabs.loading_tid = INVALID_TIMER;
+}
+
+void storage_tab_cancel( map_session_data* sd ){
+	if( sd == nullptr ){
+		return;
+	}
+
+	if( sd->storage_tabs.enabled && sd->storage_tabs.phase == STORAGE_TAB_WAIT_LOAD ){
+		sd->storage_tabs.phase = STORAGE_TAB_CANCELED_LOAD;
+		return;
+	}
+
+	storage_tab_reset( sd );
+}
+
+static bool storage_tab_busy( const map_session_data* sd ){
+	return sd != nullptr && sd->storage_tabs.enabled && sd->storage_tabs.phase != STORAGE_TAB_IDLE;
+}
+
+static void storage_tab_fail( map_session_data* sd, uint16 selector, uint8 result ){
+	if( sd == nullptr ){
+		return;
+	}
+
+	sd->storage_tabs.phase = STORAGE_TAB_IDLE;
+	sd->storage_tabs.source_id = sd->storage_tabs.current_id;
+	sd->storage_tabs.target_id = sd->storage_tabs.current_id;
+	clif_storage_tab_result( *sd, selector, result );
+}
+
+static struct s_storage* storage_tab_current_storage( map_session_data* sd ){
+	uint16 count = storage_tab_count_total();
+
+	if( count == 0 || sd->storage_tabs.current_id >= count ){
+		return nullptr;
+	}
+
+	if( sd->storage_tabs.current_id == 0 ){
+		sd->state.storage_flag = 1;
+		return &sd->storage;
+	}
+
+	if( sd->premiumStorage.stor_id != sd->storage_tabs.current_id ){
+		return nullptr;
+	}
+
+	sd->state.storage_flag = 3;
+	return &sd->premiumStorage;
+}
+
+static TIMER_FUNC(storage_tab_display_timer){
+	map_session_data* sd = map_id2sd( id );
+
+	if( sd == nullptr || sd->storage_tabs.loading_tid != tid ){
+		return 0;
+	}
+
+	sd->storage_tabs.loading_tid = INVALID_TIMER;
+
+	if( !sd->storage_tabs.enabled || sd->storage_tabs.phase != STORAGE_TAB_WAIT_DISPLAY ){
+		return 0;
+	}
+
+	sd->storage_tabs.phase = STORAGE_TAB_IDLE;
+
+	struct s_storage* stor = storage_tab_current_storage( sd );
+
+	if( stor == nullptr ){
+		clif_storage_tab_finish( sd, 0, 0 );
+		return 0;
+	}
+
+	clif_storage_tab_finish( sd, stor->amount, stor->max_amount );
+	return 0;
+}
+
+static bool storage_tab_show_current( map_session_data* sd ){
+	if( sd == nullptr ){
+		return false;
+	}
+
+	uint16 personal = storage_tab_count();
+
+	if( personal == 0 ){
+		return false;
+	}
+
+	struct s_storage* stor = storage_tab_current_storage( sd );
+
+	if( stor == nullptr ){
+		return false;
+	}
+
+	storage_tab_update_max_amount( sd, stor );
+
+	uint16 secondary = storage_tab_count_secondary();
+	uint16 selector = storage_tab_id2selector( stor->stor_id );
+
+	sd->storage_tabs.phase = STORAGE_TAB_IDLE;
+	sd->storage_tabs.source_id = sd->storage_tabs.current_id;
+	sd->storage_tabs.target_id = sd->storage_tabs.current_id;
+	storage_sortitem( stor->u.items_storage, ARRAYLENGTH(stor->u.items_storage) );
+
+	int32 delay = battle_config.storage_tabs_loading_delay;
+
+	if( delay <= 0 ){
+		clif_storage_tab_list( sd, stor->u.items_storage, ARRAYLENGTH(stor->u.items_storage), storage_getName(stor->stor_id), stor->amount, stor->max_amount, personal, secondary, selector );
+		return true;
+	}
+
+	clif_storage_tab_list_begin( sd, stor->u.items_storage, ARRAYLENGTH(stor->u.items_storage), storage_getName(stor->stor_id), personal, secondary, selector );
+	sd->storage_tabs.phase = STORAGE_TAB_WAIT_DISPLAY;
+	sd->storage_tabs.loading_tid = add_timer( gettick() + delay, storage_tab_display_timer, sd->id, 0 );
+	return true;
+}
+
+static bool storage_tab_request_target( map_session_data* sd ){
+	if( sd == nullptr ){
+		return false;
+	}
+
+	uint8 target_id = sd->storage_tabs.target_id;
+
+	if( target_id == 0 ){
+		sd->storage_tabs.current_id = 0;
+		return storage_tab_show_current( sd );
+	}
+
+	if( sd->premiumStorage.stor_id == target_id ){
+		sd->premiumStorage.state.put = (sd->storage_tabs.mode & STOR_MODE_PUT) ? 1 : 0;
+		sd->premiumStorage.state.get = (sd->storage_tabs.mode & STOR_MODE_GET) ? 1 : 0;
+		sd->storage_tabs.current_id = target_id;
+		return storage_tab_show_current( sd );
+	}
+
+	if( sd->premiumStorage.dirty ){
+		sd->storage_tabs.source_id = sd->premiumStorage.stor_id;
+		sd->storage_tabs.phase = STORAGE_TAB_WAIT_SAVE;
+		if( !intif_storage_save(sd, &sd->premiumStorage) ){
+			storage_tab_fail( sd, storage_tab_id2selector( target_id ), STORAGE_TAB_RESULT_OPENFAIL );
+			return false;
+		}
+		return true;
+	}
+
+	sd->storage_tabs.phase = STORAGE_TAB_WAIT_LOAD;
+	if( !intif_storage_request( sd, TABLE_STORAGE, target_id, sd->storage_tabs.mode ) ){
+		storage_tab_fail( sd, storage_tab_id2selector( target_id ), STORAGE_TAB_RESULT_OPENFAIL );
+		return false;
+	}
+
+	return true;
+}
+
+bool storage_tab_refresh( map_session_data* sd ){
+	if( storage_tab_busy(sd) ){
+		return false;
+	}
+
+	return storage_tab_show_current( sd );
+}
+
+bool storage_tab_switch( map_session_data* sd, uint16 selector ){
+	if( sd == nullptr || !sd->storage_tabs.enabled ){
+		return false;
+	}
+
+	uint8 target_id;
+
+	if( !storage_tab_selector2id( selector, target_id ) ){
+		clif_storage_tab_result( *sd, selector, STORAGE_TAB_RESULT_NOTNUMBER );
+		return false;
+	}
+
+	if( storage_tab_busy(sd) ){
+		clif_storage_tab_result( *sd, selector, STORAGE_TAB_RESULT_ONESEC ); //잠시만 기다려 주세요 메세지 출력 무시
+		return false;
+	}
+
+	struct s_storage* source;
+	if( sd->storage_tabs.current_id == 0 && sd->state.storage_flag == 1 ){
+		source = &sd->storage;
+	}else if( sd->storage_tabs.current_id > 0 && sd->state.storage_flag == 3 && sd->premiumStorage.stor_id == sd->storage_tabs.current_id ){
+		source = &sd->premiumStorage;
+	}else{
+		storage_tab_fail( sd, selector, STORAGE_TAB_RESULT_OPENFAIL );
+		return false;
+	}
+
+	if( target_id == sd->storage_tabs.current_id ){
+		return storage_tab_show_current( sd );
+	}
+
+	sd->storage_tabs.source_id = sd->storage_tabs.current_id;
+	sd->storage_tabs.target_id = target_id;
+
+	if( source->dirty ){
+		sd->storage_tabs.phase = STORAGE_TAB_WAIT_SAVE;
+		if( !intif_storage_save(sd, source) ){
+			storage_tab_fail( sd, selector, STORAGE_TAB_RESULT_OPENFAIL );
+			return false;
+		}
+		return true;
+	}
+
+	return storage_tab_request_target( sd );
+}
+
+void storage_tab_save_result( map_session_data* sd, uint8 stor_id, bool success ){
+	if( sd == nullptr || !sd->storage_tabs.enabled || sd->storage_tabs.phase != STORAGE_TAB_WAIT_SAVE || sd->storage_tabs.source_id != stor_id ){
+		return;
+	}
+
+	if( !success ){
+		storage_tab_fail( sd, storage_tab_id2selector( sd->storage_tabs.target_id ), STORAGE_TAB_RESULT_OPENFAIL );
+		return;
+	}
+
+	storage_tab_request_target( sd );
+}
+
+void storage_tab_load_failed( map_session_data* sd, uint8 stor_id ){
+	if( sd == nullptr || !sd->storage_tabs.enabled || sd->storage_tabs.phase != STORAGE_TAB_WAIT_LOAD || sd->storage_tabs.target_id != stor_id ){
+		return;
+	}
+
+	storage_tab_fail( sd, storage_tab_id2selector( stor_id ), STORAGE_TAB_RESULT_OPENFAIL );
+}
+#endif
+
 /**
  * Initiate storage module
  * Called from map.cpp::do_init()
  */
 void do_init_storage(void)
 {
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	add_timer_func_list( storage_tab_display_timer, "storage_tab_display_timer" );
+#endif
 }
 
 /**
@@ -134,6 +483,11 @@ int32 storage_storageopen(map_session_data *sd)
 {
 	nullpo_ret(sd);
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( sd->storage_tabs.phase == STORAGE_TAB_CANCELED_LOAD )
+		return 1;
+#endif
+
 	if(sd->state.storage_flag)
 		return 1; //Already open?
 
@@ -143,6 +497,20 @@ int32 storage_storageopen(map_session_data *sd)
 	}
 
 	sd->state.storage_flag = 1;
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( storage_tab_count() > 0 ){
+		storage_tab_reset( sd );
+		sd->storage_tabs.enabled = true;
+		sd->storage_tabs.current_id = 0;
+		sd->storage_tabs.source_id = 0;
+		sd->storage_tabs.target_id = 0;
+		sd->storage_tabs.mode = STOR_MODE_ALL;
+		if( storage_tab_show_current(sd) ){
+			return 0;
+		}
+		storage_tab_reset( sd );
+	}
+#endif
 	storage_sortitem(sd->storage.u.items_storage, ARRAYLENGTH(sd->storage.u.items_storage));
 	clif_storagelist(sd, sd->storage.u.items_storage, ARRAYLENGTH(sd->storage.u.items_storage), storage_getName(0));
 	clif_updatestorageamount(*sd, sd->storage.amount, sd->storage.max_amount);
@@ -243,6 +611,11 @@ static int32 storage_additem(map_session_data* sd, struct s_storage *stor, struc
 	struct item_data *data;
 	int32 i;
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( storage_tab_busy(sd) )
+		return 1;
+#endif
+
 	if( it->nameid == 0 || amount <= 0 )
 		return 1;
 
@@ -304,6 +677,10 @@ static int32 storage_additem(map_session_data* sd, struct s_storage *stor, struc
  */
 int32 storage_delitem(map_session_data* sd, struct s_storage *stor, int32 index, int32 amount)
 {
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( storage_tab_busy(sd) )
+		return 1;
+#endif
 	if( stor->u.items_storage[index].nameid == 0 || stor->u.items_storage[index].amount < amount )
 		return 1;
 
@@ -336,6 +713,11 @@ void storage_storageadd(map_session_data* sd, struct s_storage *stor, int32 inde
 	enum e_storage_add result;
 
 	nullpo_retv(sd);
+
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( storage_tab_busy(sd) )
+		return;
+#endif
 
 	result = storage_canAddItem(stor, index, sd->inventory.u.items_inventory, amount, MAX_INVENTORY);
 	if (result == STORAGE_ADD_INVALID)
@@ -371,6 +753,11 @@ void storage_storageget(map_session_data *sd, struct s_storage *stor, int32 inde
 
 	nullpo_retv(sd);
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( storage_tab_busy(sd) )
+		return;
+#endif
+
 	result = storage_canGetItem(stor, index, amount);
 	if (result != STORAGE_ADD_OK)
 		return;
@@ -395,6 +782,11 @@ void storage_storageaddfromcart(map_session_data *sd, struct s_storage *stor, in
 {
 	enum e_storage_add result;
 	nullpo_retv(sd);
+
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( storage_tab_busy(sd) )
+		return;
+#endif
 
 	if (sd->state.prevend) {
 		return;
@@ -474,6 +866,11 @@ void storage_storageclose(map_session_data *sd)
 {
 	nullpo_retv(sd);
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( storage_tab_busy(sd) )
+		return;
+#endif
+
 	if (sd->storage.dirty) {
 		if (save_settings&CHARSAVE_STORAGE)
 			chrif_save(sd, CSAVE_INVENTORY|CSAVE_CART);
@@ -485,6 +882,9 @@ void storage_storageclose(map_session_data *sd)
 		sd->state.storage_flag = 0;
 		clif_storageclose( *sd );
 	}
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	storage_tab_cancel( sd );
+#endif
 }
 
 /**
@@ -503,6 +903,9 @@ void storage_storage_quit(map_session_data* sd, int32 flag)
 		chrif_save(sd, CSAVE_INVENTORY|CSAVE_CART);
 	else
 		storage_storagesave(sd);
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	storage_tab_cancel( sd );
+#endif
 }
 
 /**
@@ -1118,9 +1521,25 @@ void storage_guild_storage_quit(map_session_data* sd, int32 flag)
 void storage_premiumStorage_open(map_session_data *sd) {
 	nullpo_retv(sd);
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( sd->storage_tabs.enabled ){
+		if( sd->storage_tabs.phase == STORAGE_TAB_WAIT_LOAD && sd->premiumStorage.stor_id == sd->storage_tabs.target_id ){
+			sd->storage_tabs.current_id = sd->premiumStorage.stor_id;
+			if( !storage_tab_show_current(sd) ){
+				storage_tab_fail( sd, storage_tab_id2selector( sd->premiumStorage.stor_id ), STORAGE_TAB_RESULT_OPENFAIL );
+			}
+		}
+		return;
+	}
+#endif
+
 	sd->state.storage_flag = 3;
 	storage_sortitem(sd->premiumStorage.u.items_storage, ARRAYLENGTH(sd->premiumStorage.u.items_storage));
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	clif_storagelist_named(sd, sd->premiumStorage.u.items_storage, ARRAYLENGTH(sd->premiumStorage.u.items_storage), storage_getName(sd->premiumStorage.stor_id));
+#else
 	clif_storagelist(sd, sd->premiumStorage.u.items_storage, ARRAYLENGTH(sd->premiumStorage.u.items_storage), storage_getName(sd->premiumStorage.stor_id));
+#endif
 	clif_updatestorageamount(*sd, sd->premiumStorage.amount, sd->premiumStorage.max_amount);
 }
 
@@ -1148,6 +1567,42 @@ bool storage_premiumStorage_load(map_session_data *sd, uint8 num, uint8 mode) {
 		clif_displaymessage( sd->fd, msg_txt( sd, 246 ) ); // Your GM level doesn't authorize you to perform this action.
 		return 0;
 	}
+
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	uint16 tab_count = storage_tab_count_total();
+
+	if( tab_count > 0 && num < tab_count ){
+		storage_tab_reset( sd );
+		sd->storage_tabs.enabled = true;
+		sd->storage_tabs.mode = mode;
+		sd->storage_tabs.current_id = num;
+		sd->storage_tabs.source_id = num;
+		sd->storage_tabs.target_id = num;
+
+		if( num == 0 || sd->premiumStorage.stor_id == num ){
+			if( num != 0 ){
+				sd->premiumStorage.state.put = (mode&STOR_MODE_PUT) ? 1 : 0;
+				sd->premiumStorage.state.get = (mode&STOR_MODE_GET) ? 1 : 0;
+			}
+
+			if( storage_tab_show_current( sd ) ){
+				return 1;
+			}
+
+			storage_tab_reset( sd );
+			return 0;
+		}
+
+		sd->storage_tabs.phase = STORAGE_TAB_WAIT_LOAD;
+
+		if( !intif_storage_request( sd, TABLE_STORAGE, num, mode ) ){
+			storage_tab_reset( sd );
+			return 0;
+		}
+
+		return 1;
+	}
+#endif
 
 	if (sd->premiumStorage.stor_id != num)
 		return intif_storage_request(sd, TABLE_STORAGE, num, mode);
@@ -1177,18 +1632,25 @@ void storage_premiumStorage_save(map_session_data *sd) {
  **/
 void storage_premiumStorage_close(map_session_data *sd) {
 	nullpo_retv(sd);
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( storage_tab_busy(sd) )
+		return;
+#endif
 
 	if (sd->premiumStorage.dirty) {
 		if (save_settings&CHARSAVE_STORAGE)
 			chrif_save(sd, CSAVE_INVENTORY|CSAVE_CART);
 		else
-			storage_premiumStorage_save(sd);	
+			storage_premiumStorage_save(sd);
 	}
 
 	if( sd->state.storage_flag == 3 ){
 		sd->state.storage_flag = 0;
 		clif_storageclose( *sd );
 	}
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	storage_tab_reset( sd );
+#endif
 }
 
 /**
@@ -1203,4 +1665,7 @@ void storage_premiumStorage_quit(map_session_data *sd) {
 		chrif_save(sd, CSAVE_INVENTORY|CSAVE_CART);
 	else
 		storage_premiumStorage_save(sd);
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	storage_tab_cancel( sd );
+#endif
 }

@@ -3156,9 +3156,8 @@ void clif_equiplist( map_session_data *sd ){
 	clif_inventorylist( sd );
 }
 
-void clif_storagelist( map_session_data* sd, const struct item* items, int32 items_length, const char *storename ){
+static void clif_storagelist_sub( map_session_data* sd, const struct item* items, int32 items_length, const char* storename, e_inventory_type type, bool send_end ){
 #if PACKETVER_RE_NUM >= 20180912 || PACKETVER_ZERO_NUM >= 20180919 || PACKETVER_MAIN_NUM >= 20181002
-	e_inventory_type type = INVTYPE_STORAGE;
 
 	clif_inventoryStart( sd, type, storename );
 #endif
@@ -3236,9 +3235,60 @@ void clif_storagelist( map_session_data* sd, const struct item* items, int32 ite
 	}
 
 #if PACKETVER_RE_NUM >= 20180912 || PACKETVER_ZERO_NUM >= 20180919 || PACKETVER_MAIN_NUM >= 20181002
-	clif_inventoryEnd( sd, type );
+	if( send_end ){
+		clif_inventoryEnd( sd, type );
+	}
 #endif
 }
+
+void clif_storagelist( map_session_data* sd, const struct item* items, int32 items_length, const char* storename ){
+	clif_storagelist_sub( sd, items, items_length, storename, INVTYPE_STORAGE, true );
+}
+
+#ifdef ENABLE_MULTI_STORAGE_TABS
+void clif_storagelist_named( map_session_data* sd, const struct item* items, int32 items_length, const char* storename ){
+	clif_storagelist_sub( sd, items, items_length, storename, INVTYPE_GUILD_STORAGE, true );
+}
+#endif
+
+#ifdef ENABLE_MULTI_STORAGE_TABS
+void clif_storage_tab_result( const map_session_data& sd, uint16 selector, uint8 result ){
+	PACKET_ZC_STORAGE_TAB_RESULT packet{};
+
+	packet.packetType = HEADER_ZC_STORAGE_TAB_RESULT;
+	packet.selector = selector;
+	packet.result = result;
+
+	clif_send( &packet, sizeof(packet), &sd, SELF );
+}
+
+void clif_storage_tab_list_begin( map_session_data* sd, const struct item* items, int32 items_length, const char* storename, uint16 tab_count, uint16 secondary_count, uint16 selector ){
+	nullpo_retv( sd );
+
+	PACKET_ZC_STORAGE_TAB_LIMITS limits{};
+
+	limits.packetType = HEADER_ZC_STORAGE_TAB_LIMITS;
+	limits.reserved = 0;
+	limits.personal_count = tab_count;
+	limits.secondary_count = secondary_count;
+	clif_send( &limits, sizeof(limits), sd, SELF );
+
+	clif_storage_tab_result( *sd, selector, 0 );
+	clif_storagelist_sub( sd, items, items_length, storename, INVTYPE_STORAGE, false );
+}
+
+void clif_storage_tab_finish( map_session_data* sd, uint16 amount, uint16 max_amount ){
+	nullpo_retv( sd );
+
+	clif_inventoryEnd( sd, INVTYPE_STORAGE );
+	clif_updatestorageamount( *sd, amount, max_amount );
+}
+
+void clif_storage_tab_list( map_session_data* sd, const struct item* items, int32 items_length, const char* storename, uint16 amount, uint16 max_amount, uint16 tab_count, uint16 secondary_count, uint16 selector ){
+	clif_storage_tab_list_begin( sd, items, items_length, storename, tab_count, secondary_count, selector );
+	clif_storage_tab_finish( sd, amount, max_amount );
+}
+#endif
 
 void clif_cartlist( map_session_data *sd ){
 	nullpo_retv( sd );
@@ -9800,6 +9850,12 @@ void clif_messagecolor_target(const block_list* bl, unsigned long color, const c
  * storage window without server's consent
  */
 void clif_refresh_storagewindow(map_session_data *sd) {
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	if( sd->storage_tabs.enabled ){
+		storage_tab_refresh( sd );
+		return;
+	}
+#endif
 	// Notify the client that the storage is open
 	if( sd->state.storage_flag == 1 ) {
 		storage_sortitem(sd->storage.u.items_storage, ARRAYLENGTH(sd->storage.u.items_storage));
@@ -13732,6 +13788,14 @@ void clif_parse_CloseKafra(int32 fd, map_session_data *sd)
 		storage_premiumStorage_close(sd);
 }
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+/// 0c72 <selector>.W (selector 1은 storage ID 0에 매핑됩니다)
+void clif_parse_StorageTabSelect( int32 fd, map_session_data* sd ){
+	const PACKET_CZ_STORAGE_TAB_SELECT* packet = reinterpret_cast<const PACKET_CZ_STORAGE_TAB_SELECT*>( RFIFOP( fd, 0 ) );
+
+	storage_tab_switch( sd, packet->selector );
+}
+#endif
 
 /// Displays kafra storage password dialog (ZC_REQ_STORE_PASSWORD).
 /// 023a <info>.W

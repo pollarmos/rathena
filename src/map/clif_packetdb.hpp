@@ -2058,4 +2058,8 @@
 	parseable_packet( HEADER_CZ_MOVE_ITEM_TO_PERSONAL, sizeof( PACKET_CZ_MOVE_ITEM_TO_PERSONAL ), clif_parse_MoveFromKafraFav, 0 );
 #endif
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	parseable_packet( HEADER_CZ_STORAGE_TAB_SELECT, sizeof( PACKET_CZ_STORAGE_TAB_SELECT ), clif_parse_StorageTabSelect, 0 );
+#endif
+
 #endif /* CLIF_PACKETDB_HPP */

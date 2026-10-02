@@ -7,10 +7,7 @@ function	script	F_CatStorage	{
 	mes "고양이손 상단 창고 호출 서비스다냥.";
 	mes "요청한대로 창고를 개방하겠다냥.";
 	close2;
-	if(getstatus(SC_PREMIUM_STORAGEBOOST))
-		openstorage2 8,STOR_MODE_GET|STOR_MODE_PUT;
-	else
-		openstorage2 4,STOR_MODE_GET|STOR_MODE_PUT;
+	openstorage2 4, STOR_MODE_ALL;
 	return;
 }
 
@@ -51,7 +48,7 @@ function	script	방랑 상인	{
 
 function	script	카프라창고벨	{
 	cutin "kafra_06",2;
-	switch(select("1번 창고:2번 창고:3번 창고")) {
+	switch(select("1번 창고:2번 창고:3번 창고:4번 창고")) {
 	case 1:
 		.@sname$ = "^4d4dff창고1^000000을";
 		set .@sno,0;
@@ -64,26 +61,23 @@ function	script	카프라창고벨	{
 		.@sname$ = "^4d4dff창고3^000000을";
 		set .@sno,2;
 		break;
+	case 4:
+		.@sname$ = "^4d4dff창고4^000000을";
+		set .@sno,3;
+		break;
 	}
 	mes "[카프라 직원]";
 	mes "안녕하세요. 카프라 호출 서비스입니다.";
 	mes "요청하신대로 " +.@sname$ + " 개방하겠습니다.";
 	close2;
 	if(.@sno == 0)
-		if(getstatus(SC_PREMIUM_STORAGEBOOST))
-			openstorage2 5,STOR_MODE_GET|STOR_MODE_PUT;
-		else
-			openstorage2 1,STOR_MODE_GET|STOR_MODE_PUT;
+		openstorage;
 	else if(.@sno == 1)
-		if(getstatus(SC_PREMIUM_STORAGEBOOST))
-			openstorage2 6,STOR_MODE_GET|STOR_MODE_PUT;
-		else
-			openstorage2 2,STOR_MODE_GET|STOR_MODE_PUT;
+		openstorage2 1, STOR_MODE_ALL;
 	else if(.@sno == 2)
-		if(getstatus(SC_PREMIUM_STORAGEBOOST))
-			openstorage2 7,STOR_MODE_GET|STOR_MODE_PUT;
-		else
-			openstorage2 3,STOR_MODE_GET|STOR_MODE_PUT;
+		openstorage2 2, STOR_MODE_ALL;
+	else if(.@sno == 3)
+		openstorage2 3, STOR_MODE_ALL;
 	cutin "", 255;
 	end;
 }

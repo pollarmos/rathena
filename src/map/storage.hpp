@@ -24,6 +24,27 @@ enum e_storage_add {
 	STORAGE_ADD_INVALID,
 };
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+#define STORAGE_TAB_SECONDARY_BASE 100
+
+enum e_storage_tab_result : uint8 {
+	STORAGE_TAB_RESULT_OPEN = 0,
+	STORAGE_TAB_RESULT_WAIT,
+	STORAGE_TAB_RESULT_OPENFAIL,
+	STORAGE_TAB_RESULT_SAMETAB,
+	STORAGE_TAB_RESULT_ONESEC,
+	STORAGE_TAB_RESULT_NOTNUMBER,
+};
+
+enum e_storage_tab_phase : uint8 {
+	STORAGE_TAB_IDLE = 0,
+	STORAGE_TAB_WAIT_SAVE,
+	STORAGE_TAB_WAIT_LOAD,
+	STORAGE_TAB_CANCELED_LOAD,
+	STORAGE_TAB_WAIT_DISPLAY,
+};
+#endif
+
 /// Guild storage flags
 enum e_guild_storage_flags : uint8 {
 	GSTORAGE_OPEN = 0,
@@ -51,6 +72,17 @@ struct guild_log_entry{
 
 const char *storage_getName(uint8 id);
 bool storage_exists(uint8 id);
+#ifdef ENABLE_MULTI_STORAGE_TABS
+uint16 storage_tab_count();
+uint16 storage_tab_count_secondary();
+uint16 storage_tab_count_total();
+bool storage_tab_refresh(map_session_data* sd);
+bool storage_tab_switch(map_session_data* sd, uint16 selector);
+void storage_tab_save_result(map_session_data* sd, uint8 stor_id, bool success);
+void storage_tab_load_failed(map_session_data* sd, uint8 stor_id);
+void storage_tab_reset(map_session_data* sd);
+void storage_tab_cancel(map_session_data* sd);
+#endif
 
 int32 storage_delitem(map_session_data* sd, struct s_storage *stor, int32 index, int32 amount);
 int32 storage_storageopen(map_session_data *sd);

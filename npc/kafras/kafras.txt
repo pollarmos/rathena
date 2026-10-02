@@ -72,7 +72,7 @@ aldeba_in,96,181,4	script	카프라서비스	113,{
 		mes "[카프라글라리스]";
 		mes "이용하실 창고를 선택하세요.";
 		next;
-		switch(select("1번 창고:2번 창고:3번 창고")) {
+		switch(select("1번 창고:2번 창고:3번 창고:4번 창고")) {
 		case 1:
 			callfunc("F_CheckKafCode");    //check your storage password, if set
 			set Zeny, Zeny-20;
@@ -80,10 +80,7 @@ aldeba_in,96,181,4	script	카프라서비스	113,{
 			mes "[카프라글라리스]";
 			mes "이용해 주셔서 감사합니다.";
 			close2;
-			if(getstatus(SC_PREMIUM_STORAGEBOOST))
-				openstorage2 5,STOR_MODE_GET|STOR_MODE_PUT;
-			else
-				openstorage2 1,STOR_MODE_GET|STOR_MODE_PUT;
+			openstorage;
 		case 2:
 			callfunc("F_CheckKafCode");    //check your storage password, if set
 			set Zeny, Zeny-20;
@@ -91,10 +88,7 @@ aldeba_in,96,181,4	script	카프라서비스	113,{
 			mes "[카프라글라리스]";
 			mes "이용해 주셔서 감사합니다.";
 			close2;
-			if(getstatus(SC_PREMIUM_STORAGEBOOST))
-				openstorage2 6,STOR_MODE_GET|STOR_MODE_PUT;
-			else
-				openstorage2 2,STOR_MODE_GET|STOR_MODE_PUT;
+			openstorage2 1, STOR_MODE_ALL;
 		case 3:
 			callfunc("F_CheckKafCode");    //check your storage password, if set
 			set Zeny, Zeny-20;
@@ -102,10 +96,15 @@ aldeba_in,96,181,4	script	카프라서비스	113,{
 			mes "[카프라글라리스]";
 			mes "이용해 주셔서 감사합니다.";
 			close2;
-			if(getstatus(SC_PREMIUM_STORAGEBOOST))
-				openstorage2 7,STOR_MODE_GET|STOR_MODE_PUT;
-			else
-				openstorage2 3,STOR_MODE_GET|STOR_MODE_PUT;
+			openstorage2 2, STOR_MODE_ALL;
+		case 4:
+			callfunc("F_CheckKafCode");    //check your storage password, if set
+			set Zeny, Zeny-20;
+			set RESRVPTS, RESRVPTS + (20/5);
+			mes "[카프라글라리스]";
+			mes "이용해 주셔서 감사합니다.";
+			close2;
+			openstorage2 3, STOR_MODE_ALL;
 		}
 		break;
 	case 3:

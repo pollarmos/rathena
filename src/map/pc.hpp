@@ -35,6 +35,18 @@ enum sc_type : int16;
 
 class MapGuild;
 
+#ifdef ENABLE_MULTI_STORAGE_TABS
+struct s_storage_tab_state {
+	bool enabled;
+	uint8 phase;
+	uint8 current_id;
+	uint8 source_id;
+	uint8 target_id;
+	uint8 mode;
+	int32 loading_tid;
+};
+#endif
+
 #define MAX_PC_BONUS 50 /// Max bonus, usually used by item bonus
 #define MAX_PC_FEELHATE 3 /// Max feel hate info
 #define MAX_SPIRITBALL 15 /// Max spirit balls
@@ -492,6 +504,9 @@ public:
 
 	// Item Storages
 	struct s_storage storage, premiumStorage;
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	struct s_storage_tab_state storage_tabs;
+#endif
 	struct s_storage inventory;
 	struct s_storage cart;
 

@@ -964,6 +964,13 @@ void clif_tradeundo( const map_session_data& sd );
 // storage
 void clif_storagelist( map_session_data* sd, const struct item* items, int32 items_length, const char *storename );
 void clif_updatestorageamount( const map_session_data& sd, uint16 amount, uint16 max_amount );
+#ifdef ENABLE_MULTI_STORAGE_TABS
+void clif_storage_tab_list( map_session_data* sd, const struct item* items, int32 items_length, const char* storename, uint16 amount, uint16 max_amount, uint16 tab_count, uint16 secondary_count, uint16 selector );
+void clif_storagelist_named( map_session_data* sd, const struct item* items, int32 items_length, const char* storename );
+void clif_storage_tab_list_begin( map_session_data* sd, const struct item* items, int32 items_length, const char* storename, uint16 tab_count, uint16 secondary_count, uint16 selector );
+void clif_storage_tab_finish( map_session_data* sd, uint16 amount, uint16 max_amount );
+void clif_storage_tab_result( const map_session_data& sd, uint16 selector, uint8 result );
+#endif
 void clif_storageitemadded( const map_session_data* sd, const item* i, int32 index, int32 amount );
 void clif_storageitemremoved( const map_session_data& sd, uint16 index, uint32 amount );
 void clif_storageclose( const map_session_data& sd );

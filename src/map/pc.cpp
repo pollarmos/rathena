@@ -2174,6 +2174,10 @@ bool pc_authok(map_session_data *sd, uint32 login_id2, time_t expiration_time, i
 	memset(&sd->cart, 0, sizeof(struct s_storage));
 	memset(&sd->storage, 0, sizeof(struct s_storage));
 	memset(&sd->premiumStorage, 0, sizeof(struct s_storage));
+#ifdef ENABLE_MULTI_STORAGE_TABS
+	memset(&sd->storage_tabs, 0, sizeof(sd->storage_tabs));
+	sd->storage_tabs.loading_tid = INVALID_TIMER;
+#endif
 	memset(&sd->equip_index, -1, sizeof(sd->equip_index));
 	memset(&sd->equip_switch_index, -1, sizeof(sd->equip_switch_index));
 
