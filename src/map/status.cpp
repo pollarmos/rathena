@@ -3815,6 +3815,9 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 	if (sd->special_state.no_walk_delay)
 		clif_status_load(sd, EFST_ENDURE, 0);
 
+	if (sd->prev)
+		clif_status_load(sd, EFST_MOVHASTE_INFINITY, 0);
+
 	memset(&sd->special_state,0,sizeof(sd->special_state));
 
 	if (pc_isvip(sd)) // Magic Stone requirement avoidance for VIP.
@@ -3908,6 +3911,8 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 		pet_delautobonus(*sd, sd->pd->autobonus2, true);
 		pet_delautobonus(*sd, sd->pd->autobonus3, true);
 	}
+
+	sd->special_state.equip_bonus_running = 1;
 
 	// Parse equipment
 	for (i = 0; i < EQI_MAX; i++) {
@@ -4192,6 +4197,8 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 		}
 		current_equip_opt_index = -1;
 	}
+
+	sd->special_state.equip_bonus_running = 0;
 
 	if (!sc->empty()){
 		if( status_change_entry* sce = sc->getSCE(SC_ITEMSCRIPT); sce != nullptr ){

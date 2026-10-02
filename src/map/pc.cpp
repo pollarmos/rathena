@@ -3998,8 +3998,12 @@ void pc_bonus(map_session_data *sd,int32 type,int32 val)
 			}
 			break;
 		case SP_SPEED_RATE:	//Non stackable increase
-			if (sd->state.lr_flag != LR_FLAG_ARROW)
+			if (sd->state.lr_flag != LR_FLAG_ARROW) {
 				sd->bonus.speed_rate = min(sd->bonus.speed_rate, -val);
+				if (val == 25 && sd->prev && sd->special_state.equip_bonus_running) {
+					clif_status_change(sd,EFST_MOVHASTE_INFINITY,1,INFINITE_TICK,25,0,0);
+				}
+			}
 			break;
 		case SP_SPEED_ADDRATE:	//Stackable increase
 			if (sd->state.lr_flag != LR_FLAG_ARROW)
